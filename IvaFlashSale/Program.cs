@@ -17,7 +17,7 @@ builder.WebHost.UseUrls($"http://*:{port}");
 // STRUCTURED LOGGING
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
-    .WriteTo.File("logs/engine_log.txt", rollingInterval: RollingInterval.Day)
+   // .WriteTo.File("logs/engine_log.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 builder.Host.UseSerilog();
 
