@@ -107,12 +107,8 @@ using (var scope = app.Services.CreateScope())
 // MIDDLEWARE PIPELINE
 app.UseMiddleware<ExceptionHandlingMiddleware>(); // Always first!
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
+app.UseSwagger();
+app.UseSwaggerUI();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthentication();
