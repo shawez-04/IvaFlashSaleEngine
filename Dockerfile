@@ -4,16 +4,16 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Copy csproj first for better Docker layer caching
-COPY ["IvaFlashSale/IvaFlashSale.csproj", "IvaFlashSale/"]
-RUN dotnet restore "IvaFlashSale/IvaFlashSale.csproj"
+# FIX: Match your specific folder and file name
+COPY ["IvaFlashSale/IvaFlashSaleEngine.csproj", "IvaFlashSale/"]
+RUN dotnet restore "IvaFlashSale/IvaFlashSaleEngine.csproj"
 
 # Copy everything else
 COPY . .
 WORKDIR "/src/IvaFlashSale"
 
 # Build the application
-RUN dotnet publish "IvaFlashSale.csproj" -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "IvaFlashSaleEngine.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 
 # -------------------------
@@ -27,9 +27,7 @@ COPY --from=build /app/publish .
 
 # Required for Render dynamic port binding
 ENV ASPNETCORE_URLS=http://+:8080
-
-# Expose port (Render will override internally)
 EXPOSE 8080
 
-# Start the application
+# FIX: Ensure the DLL name matches your project name
 ENTRYPOINT ["dotnet", "IvaFlashSaleEngine.dll"]
