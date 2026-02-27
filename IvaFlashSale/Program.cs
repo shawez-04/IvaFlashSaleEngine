@@ -56,20 +56,13 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    if (builder.Environment.IsDevelopment())
-    {
-        // Use SQL Server for our local dev environment
-        options.UseSqlServer(connectionString);
-    }
-    else
-    {
-        // Use PostgreSQL for Production (Supabase)
+            // Use PostgreSQL for Production (Supabase)
         // Ensure our connection string includes: "SSL Mode=Require;Trust Server Certificate=true;"
         options.UseNpgsql(connectionString);
         options.ConfigureWarnings(w =>
         w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
 
-    }
+    
 });
 
 // DEPENDENCY INJECTION

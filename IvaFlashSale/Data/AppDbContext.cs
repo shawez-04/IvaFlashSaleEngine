@@ -22,9 +22,18 @@ namespace IvaFlashSaleEngine.Data
                 .HasPrecision(18, 2);
 
             // Seed a product for testing
-            modelBuilder.Entity<Product>().HasData(
-                new Product { Id = 1, Name = "Limited Edition Sneakers", Price = 99.99m, StockCount = 10 }
-            );
+            modelBuilder.Entity<Product>().HasData
+                (new Product
+                {
+                    Id = 1,
+                    Name = "Limited Edition Sneakers",
+                    Description = "",
+                    ImageUrl = "",
+                    Price = 99.99m,
+                    StockCount = 10,
+                    IsActive = true
+                }
+                );
         }
     }
 }
