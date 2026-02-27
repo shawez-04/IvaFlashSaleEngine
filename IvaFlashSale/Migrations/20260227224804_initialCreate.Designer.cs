@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IvaFlashSaleEngine.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260227162808_AddUsersTable")]
-    partial class AddUsersTable
+    [Migration("20260227224804_initialCreate")]
+    partial class initialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -73,6 +73,7 @@ namespace IvaFlashSaleEngine.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<byte[]>("RowVersion")
