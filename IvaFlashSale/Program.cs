@@ -66,6 +66,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         // Use PostgreSQL for Production (Supabase)
         // Ensure our connection string includes: "SSL Mode=Require;Trust Server Certificate=true;"
         options.UseNpgsql(connectionString);
+        options.ConfigureWarnings(w =>
+        w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+
     }
 });
 
