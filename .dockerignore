@@ -1,0 +1,27 @@
+# Build folders
+bin/
+obj/
+
+# VS files
+.vs/
+*.user
+*.suo
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Docker
+Dockerfile*
+docker-compose*
+
+# Node (if any frontend later)
+node_modules/
+
+# OS files
+*.DS_Store
+Thumbs.db
