@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="IvaFlashSale/IvaFlashSaleEngine.csproj" />
+  <Project Path="IvaFlashSaleEngine.UnitTests/IvaFlashSaleEngine.Tests.csproj" Id="d8995b59-89de-4ce8-abed-3d97c60474e0" />
 </Solution>
