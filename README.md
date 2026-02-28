@@ -15,6 +15,17 @@
 
 ---
 
+## 📸 Project Preview
+
+### 🔎 Swagger API Documentation
+![Swagger UI](images/swagger_Demo.png)
+
+### ⚡ Flash Sale Concurrency Validation 5 Simultaneous Requests and 2 Items in Stock
+![Postman Concurrency](images/ConcurrencyTestPostman.png)
+
+### 🔐 JWT Claims Verification
+![JWT Payload](images/JWT_Decoded.png)
+
 # 🧠 Problem Statement
 
 In flash-sale scenarios (e.g., limited sneaker or clothing drops), thousands of users attempt to purchase limited inventory simultaneously.
