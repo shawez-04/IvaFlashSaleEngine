@@ -1,10 +1,12 @@
 # -------------------------
 # STAGE 1: BUILD
 # -------------------------
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Changed from 10.0 to 8.0 (LTS)
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# FIX: Match your specific folder and file name
+# FIX: Copy the .csproj based on your actual folder structure
+# If your .csproj is in the root, use: COPY ["IvaFlashSaleEngine.csproj", "./"]
 COPY ["IvaFlashSale/IvaFlashSaleEngine.csproj", "IvaFlashSale/"]
 RUN dotnet restore "IvaFlashSale/IvaFlashSaleEngine.csproj"
 
@@ -19,15 +21,17 @@ RUN dotnet publish "IvaFlashSaleEngine.csproj" -c Release -o /app/publish /p:Use
 # -------------------------
 # STAGE 2: RUNTIME
 # -------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+# Changed from 10.0 to 8.0 (LTS)
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-# Copy published files
+# Copy published files from the build stage
 COPY --from=build /app/publish .
 
-# Required for Render dynamic port binding
+# Render uses the PORT environment variable. 
+# This line tells .NET to listen on the port Render provides.
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
-# FIX: Ensure the DLL name matches your project name
+# Ensure the DLL name matches your project output
 ENTRYPOINT ["dotnet", "IvaFlashSaleEngine.dll"]
