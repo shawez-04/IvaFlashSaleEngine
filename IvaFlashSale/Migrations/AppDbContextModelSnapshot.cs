@@ -73,10 +73,11 @@ namespace IvaFlashSaleEngine.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
-                    b.Property<byte[]>("RowVersion")
+                    b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("bytea");
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<int>("StockCount")
                         .HasColumnType("integer");
@@ -89,12 +90,12 @@ namespace IvaFlashSaleEngine.Migrations
                         new
                         {
                             Id = 1,
-                            Description = "",
-                            ImageUrl = "",
+                            Description = "High-performance flash sale item",
+                            ImageUrl = "https://example.com/sneakers.jpg",
                             IsActive = true,
                             Name = "Limited Edition Sneakers",
                             Price = 99.99m,
-                            RowVersion = new byte[0],
+                            RowVersion = 0u,
                             StockCount = 10
                         });
                 });

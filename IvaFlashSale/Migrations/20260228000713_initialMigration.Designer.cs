@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IvaFlashSaleEngine.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260227232441_initialCreate")]
-    partial class initialCreate
+    [Migration("20260228000713_initialMigration")]
+    partial class initialMigration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -76,10 +76,11 @@ namespace IvaFlashSaleEngine.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
-                    b.Property<byte[]>("RowVersion")
+                    b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("bytea");
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<int>("StockCount")
                         .HasColumnType("integer");
@@ -92,12 +93,12 @@ namespace IvaFlashSaleEngine.Migrations
                         new
                         {
                             Id = 1,
-                            Description = "",
-                            ImageUrl = "",
+                            Description = "High-performance flash sale item",
+                            ImageUrl = "https://example.com/sneakers.jpg",
                             IsActive = true,
                             Name = "Limited Edition Sneakers",
                             Price = 99.99m,
-                            RowVersion = new byte[0],
+                            RowVersion = 0u,
                             StockCount = 10
                         });
                 });

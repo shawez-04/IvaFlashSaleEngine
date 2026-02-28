@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IvaFlashSaleEngine.Migrations
 {
     /// <inheritdoc />
-    public partial class initialCreate : Migration
+    public partial class initialMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -39,7 +39,7 @@ namespace IvaFlashSaleEngine.Migrations
                     Price = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
                     StockCount = table.Column<int>(type: "integer", nullable: false),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
-                    RowVersion = table.Column<byte[]>(type: "bytea", rowVersion: true, nullable: true)
+                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -64,7 +64,7 @@ namespace IvaFlashSaleEngine.Migrations
             migrationBuilder.InsertData(
                 table: "Products",
                 columns: new[] { "Id", "Description", "ImageUrl", "IsActive", "Name", "Price", "StockCount" },
-                values: new object[] { 1, "", "", true, "Limited Edition Sneakers", 99.99m, 10 });
+                values: new object[] { 1, "High-performance flash sale item", "https://example.com/sneakers.jpg", true, "Limited Edition Sneakers", 99.99m, 10 });
         }
 
         /// <inheritdoc />

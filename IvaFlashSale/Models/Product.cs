@@ -18,10 +18,10 @@ namespace IvaFlashSaleEngine.Models
 
         public int StockCount { get; set; }
 
-        // SOFT DELETE: Instead of removing from DB, we flip this to false
         public bool IsActive { get; set; } = true;
 
+        // Optimized for PostgreSQL Concurrency
         [Timestamp]
-        public byte[]? RowVersion { get; set; } = Array.Empty<byte>();
+        public uint RowVersion { get; set; }
     }
 }

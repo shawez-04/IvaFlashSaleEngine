@@ -15,25 +15,28 @@ namespace IvaFlashSaleEngine.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            //  Fix the Decimal Warning
-            // Configures 'Price' to have a maximum of 18 digits with 2 after the decimal point
+            // Decimal Precision Fix
             modelBuilder.Entity<Product>()
                 .Property(p => p.Price)
                 .HasPrecision(18, 2);
 
-            // Seed a product for testing
-            modelBuilder.Entity<Product>().HasData
-                (new Product
-                {
-                    Id = 1,
-                    Name = "Limited Edition Sneakers",
-                    Description = "",
-                    ImageUrl = "",
-                    Price = 99.99m,
-                    StockCount = 10,
-                    IsActive = true
-                }
-                );
+            // PostgreSQL Concurrency Mapping
+            // This tells EF Core to use the hidden 'xmin' column in Postgres
+            modelBuilder.Entity<Product>()
+                .Property(p => p.RowVersion)
+                .IsRowVersion();
+
+            // Seed Data (RowVersion should be omitted here; DB handles it)
+            modelBuilder.Entity<Product>().HasData(new Product
+            {
+                Id = 1,
+                Name = "Limited Edition Sneakers",
+                Description = "High-performance flash sale item",
+                ImageUrl = "https://example.com/sneakers.jpg",
+                Price = 99.99m,
+                StockCount = 10,
+                IsActive = true
+            });
         }
     }
 }
