@@ -4,6 +4,6 @@ namespace IvaFlashSaleEngine.Services
 {
     public interface IPurchaseService
     {
-        Task<bool> ProcessPurchaseAsync(PurchaseRequest request);
+        Task<bool> ProcessPurchaseAsync(PurchaseRequest request, string userId, string idempotencyKey);
     }
 }

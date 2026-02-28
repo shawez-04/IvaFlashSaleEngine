@@ -2,10 +2,7 @@
 {
     public class PurchaseRequest
     {
-        // The ID of the product the user wants to buy
         public int ProductId { get; set; }
-
-        // A simple identifier for the user (e.g., "User_123")
-        public string UserId { get; set; } = string.Empty;
+        public int Quantity { get; set; } = 1; // Default to 1 for flash sales
     }
 }

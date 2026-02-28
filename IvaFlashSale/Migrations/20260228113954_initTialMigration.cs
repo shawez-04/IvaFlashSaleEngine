@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace IvaFlashSaleEngine.Migrations
 {
     /// <inheritdoc />
-    public partial class initialMigration : Migration
+    public partial class initTialMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -20,7 +20,10 @@ namespace IvaFlashSaleEngine.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     ProductId = table.Column<int>(type: "integer", nullable: false),
                     UserId = table.Column<string>(type: "text", nullable: false),
-                    OrderDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    Quantity = table.Column<int>(type: "integer", nullable: false),
+                    TotalPrice = table.Column<decimal>(type: "numeric", nullable: false),
+                    OrderDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IdempotencyKey = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -65,6 +68,12 @@ namespace IvaFlashSaleEngine.Migrations
                 table: "Products",
                 columns: new[] { "Id", "Description", "ImageUrl", "IsActive", "Name", "Price", "StockCount" },
                 values: new object[] { 1, "High-performance flash sale item", "https://example.com/sneakers.jpg", true, "Limited Edition Sneakers", 99.99m, 10 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Orders_IdempotencyKey",
+                table: "Orders",
+                column: "IdempotencyKey",
+                unique: true);
         }
 
         /// <inheritdoc />

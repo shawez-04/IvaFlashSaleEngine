@@ -20,6 +20,12 @@ namespace IvaFlashSaleEngine.Data
                 .Property(p => p.Price)
                 .HasPrecision(18, 2);
 
+            // Index the IdempotencyKey for lightning-fast lookups
+            // This also prevents two rows with the same key from ever being inserted
+            modelBuilder.Entity<Order>()
+                .HasIndex(o => o.IdempotencyKey)
+                .IsUnique();
+
             // PostgreSQL Concurrency Mapping
             // This tells EF Core to use the hidden 'xmin' column in Postgres
             modelBuilder.Entity<Product>()

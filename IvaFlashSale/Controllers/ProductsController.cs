@@ -1,86 +1,57 @@
-﻿using IvaFlashSaleEngine.Models;
+﻿using IvaFlashSaleEngine.DTOs;
 using IvaFlashSaleEngine.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace IvaFlashSaleEngine.Controllers
+[ApiController]
+[Route("api/[controller]")]
+public class ProductsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class ProductsController : ControllerBase
+    private readonly IProductService _productService;
+
+    public ProductsController(IProductService productService) => _productService = productService;
+
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetProducts() => Ok(await _productService.GetAllActiveProductsAsync());
+
+    [HttpGet("{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetProduct(int id)
     {
-        private readonly IProductService _productService;
+        var result = await _productService.GetProductByIdAsync(id);
+        return result == null ? NotFound() : Ok(result);
+    }
 
-        public ProductsController(IProductService productService)
-        {
-            _productService = productService;
-        }
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateProduct([FromBody] ProductUpsertRequest request)
+    {
+        var result = await _productService.CreateProductAsync(request);
+        return CreatedAtAction(nameof(GetProduct), new { id = result.Id }, result);
+    }
 
-        [HttpGet]
-        [AllowAnonymous]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
-        {
-            var products = await _productService.GetAllActiveProductsAsync();
-            return Ok(products);
-        }
+    [HttpPost("bulk")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateBulk([FromBody] List<ProductUpsertRequest> requests)
+    {
+        var results = await _productService.CreateProductsBulkAsync(requests);
+        return Ok(new { message = "Bulk addition successful.", data = results });
+    }
 
-        [HttpGet("{id}")]
-        [AllowAnonymous]
-        public async Task<ActionResult<Product>> GetProduct(int id)
-        {
-            var product = await _productService.GetProductByIdAsync(id);
-            if (product == null) return NotFound(new { message = "Product not found or inactive." });
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateProduct(int id, [FromBody] ProductUpsertRequest request, [FromHeader(Name = "If-Match")] uint rowVersion)
+    {
+        var success = await _productService.UpdateProductAsync(id, request, rowVersion);
+        return success ? NoContent() : NotFound();
+    }
 
-            return Ok(product);
-        }
-
-        [HttpPost]
-        [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Product>> CreateProduct(Product product)
-        {
-            // Always validate incoming data
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            var createdProduct = await _productService.CreateProductAsync(product);
-
-            // Returns a 201 Created status with the location of the new resource
-            return CreatedAtAction(nameof(GetProduct), new { id = createdProduct.Id }, createdProduct);
-        }
-
-        [Authorize(Roles = "Admin")]
-        [HttpPost("bulk")]
-        public async Task<IActionResult> CreateBulk([FromBody] List<Product> products)
-        {
-            // The ProductService now handles the logic and throws ServiceExceptions
-            var createdProducts = await _productService.CreateProductsBulkAsync(products);
-
-            return Ok(new
-            {
-                message = $"{createdProducts.Count()} products added to the engine.",
-                data = createdProducts
-            });
-        }
-
-        [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateProduct(int id, Product product)
-        {
-            if (id != product.Id) return BadRequest(new { message = "ID mismatch." });
-
-            var result = await _productService.UpdateProductAsync(product);
-            if (!result) return Conflict(new { message = "Concurrency conflict or product not found." });
-
-            return NoContent();
-        }
-
-        [HttpDelete("{id}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteProduct(int id)
-        {
-            var result = await _productService.SoftDeleteProductAsync(id);
-            if (!result) return NotFound(new { message = "Product not found." });
-
-            return Ok(new { message = "Product successfully deactivated (Soft Delete)." });
-        }
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteProduct(int id)
+    {
+        var success = await _productService.SoftDeleteProductAsync(id);
+        return success ? Ok(new { message = "Soft deleted successfully." }) : NotFound();
     }
 }

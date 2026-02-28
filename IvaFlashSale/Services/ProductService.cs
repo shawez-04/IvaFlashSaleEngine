@@ -1,6 +1,7 @@
 ﻿using IvaFlashSaleEngine.Data;
-using IvaFlashSaleEngine.Models;
+using IvaFlashSaleEngine.DTOs;
 using IvaFlashSaleEngine.Exceptions;
+using IvaFlashSaleEngine.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 
@@ -17,60 +18,78 @@ namespace IvaFlashSaleEngine.Services
             _logger = logger;
         }
 
-        public async Task<IEnumerable<Product>> GetAllActiveProductsAsync()
+        public async Task<IEnumerable<ProductResponse>> GetAllActiveProductsAsync()
         {
             return await _context.Products
                 .Where(p => p.IsActive)
-                .AsNoTracking() // Performance boost for read-only lists
+                .AsNoTracking()
+                .Select(p => MapToResponse(p))
                 .ToListAsync();
         }
 
-        public async Task<Product?> GetProductByIdAsync(int id)
+        public async Task<ProductResponse?> GetProductByIdAsync(int id)
         {
             var product = await _context.Products
                 .FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
 
-            if (product == null)
-            {
-                throw new ServiceException($"Product with ID {id} not found.", "PRODUCT_NOT_FOUND", HttpStatusCode.NotFound);
-            }
-            return product;
+            return product == null ? null : MapToResponse(product);
         }
 
-        public async Task<Product> CreateProductAsync(Product product)
+        public async Task<ProductResponse> CreateProductAsync(ProductUpsertRequest request)
         {
-            if (product.Price <= 0)
-                throw new ServiceException("Product price must be greater than zero.", "INVALID_PRODUCT_DATA");
+            if (request.Price <= 0)
+                throw new ServiceException("Price must be positive.", "INVALID_PRICE");
+
+            var product = new Product
+            {
+                Name = request.Name,
+                Description = request.Description,
+                ImageUrl = request.ImageUrl,
+                Price = request.Price,
+                StockCount = request.StockCount,
+                IsActive = true
+            };
 
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
-            return product;
+            return MapToResponse(product);
         }
-        
-        public async Task<IEnumerable<Product>> CreateProductsBulkAsync(List<Product> products)
-        {
-            if (products == null || !products.Any())
-            {
-                throw new ServiceException("Product list cannot be empty.", "PRODUCT_BULK_EMPTY", HttpStatusCode.BadRequest);
-            }
 
-            // Validation loop before we touch the DB
-            foreach (var product in products)
+        public async Task<IEnumerable<ProductResponse>> CreateProductsBulkAsync(List<ProductUpsertRequest> requests)
+        {
+            if (requests == null || !requests.Any())
+                throw new ServiceException("List cannot be empty.", "BULK_EMPTY", HttpStatusCode.BadRequest);
+
+            var products = requests.Select(r => new Product
             {
-                if (product.Price <= 0)
-                    throw new ServiceException($"Product '{product.Name}' has an invalid price.", "INVALID_PRODUCT_DATA");
-            }
+                Name = r.Name,
+                Description = r.Description,
+                ImageUrl = r.ImageUrl,
+                Price = r.Price,
+                StockCount = r.StockCount,
+                IsActive = true
+            }).ToList();
 
             await _context.Products.AddRangeAsync(products);
             await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Bulk insertion successful. {Count} products added.", products.Count);
-            return products;
+            return products.Select(MapToResponse);
         }
 
-        public async Task<bool> UpdateProductAsync(Product product)
+        public async Task<bool> UpdateProductAsync(int id, ProductUpsertRequest request, uint rowVersion)
         {
-            _context.Entry(product).State = EntityState.Modified;
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return false;
+
+            // Update only allowed fields
+            product.Name = request.Name;
+            product.Description = request.Description;
+            product.ImageUrl = request.ImageUrl;
+            product.Price = request.Price;
+            product.StockCount = request.StockCount;
+
+            // Set original RowVersion to trigger EF Core Concurrency Check
+            _context.Entry(product).Property(p => p.RowVersion).OriginalValue = rowVersion;
+
             try
             {
                 await _context.SaveChangesAsync();
@@ -78,19 +97,29 @@ namespace IvaFlashSaleEngine.Services
             }
             catch (DbUpdateConcurrencyException)
             {
-                throw new ServiceException("The product was modified by another admin. Please refresh.", "PRODUCT_CONCURRENCY_ERROR", HttpStatusCode.Conflict);
+                throw new ServiceException("Concurrency conflict: Product was modified elsewhere.", "CONFLICT", HttpStatusCode.Conflict);
             }
         }
 
         public async Task<bool> SoftDeleteProductAsync(int id)
         {
             var product = await _context.Products.FindAsync(id);
-            if (product == null)
-                throw new ServiceException("Cannot delete: Product not found.", "PRODUCT_DELETE_FAILED", HttpStatusCode.NotFound);
+            if (product == null) return false;
 
             product.IsActive = false;
             await _context.SaveChangesAsync();
             return true;
         }
+
+        private static ProductResponse MapToResponse(Product p) => new ProductResponse
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Description = p.Description,
+            ImageUrl = p.ImageUrl,
+            Price = p.Price,
+            StockCount = p.StockCount,
+            RowVersion = p.RowVersion
+        };
     }
 }

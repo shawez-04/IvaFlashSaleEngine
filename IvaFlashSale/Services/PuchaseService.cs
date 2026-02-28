@@ -2,7 +2,6 @@
 using IvaFlashSaleEngine.DTOs;
 using IvaFlashSaleEngine.Exceptions;
 using IvaFlashSaleEngine.Models;
-using IvaFlashSaleEngine.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 
@@ -19,53 +18,72 @@ namespace IvaFlashSaleEngine.Services
             _logger = logger;
         }
 
-        public async Task<bool> ProcessPurchaseAsync(PurchaseRequest request)
+        public async Task<bool> ProcessPurchaseAsync(PurchaseRequest request, string userId, string idempotencyKey)
         {
-            _logger.LogInformation("Purchase attempt: Product {ProductId} by User {UserId}", request.ProductId, request.UserId);
+            _logger.LogInformation("Processing purchase: Product {ProductId}, User {UserId}, Key {IdempotencyKey}",
+                request.ProductId, userId, idempotencyKey);
+
+            // Idempotency Check: Prevent duplicate orders within a short window
+            var existingOrder = await _context.Orders
+                .AnyAsync(o => o.IdempotencyKey == idempotencyKey);
+
+            if (existingOrder)
+            {
+                _logger.LogWarning("Duplicate request blocked: IdempotencyKey {Key}", idempotencyKey);
+                return true; // Return true as we've already processed this "intent"
+            }
 
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
+                // Fetch product with xmin tracking
                 var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == request.ProductId);
 
                 if (product == null)
-                    throw new ServiceException("Product no longer exists.", "PURCHASE_PRODUCT_NOT_FOUND", HttpStatusCode.NotFound);
+                    throw new ServiceException("Product not found.", "PURCHASE_NOT_FOUND", HttpStatusCode.NotFound);
 
                 if (!product.IsActive)
-                    throw new ServiceException("This product is currently unavailable.", "PURCHASE_PRODUCT_INACTIVE");
+                    throw new ServiceException("Product is inactive.", "PURCHASE_INACTIVE");
 
-                if (product.StockCount <= 0)
+                // Robust Stock Check
+                if (product.StockCount < request.Quantity)
                 {
-                    _logger.LogWarning("Stock-out: Product {ProductId}", request.ProductId);
-                    throw new ServiceException("Item is sold out!", "PURCHASE_OUT_OF_STOCK", HttpStatusCode.Gone);
+                    _logger.LogWarning("Insufficient stock for Product {Id}. Requested: {Req}, Available: {Avail}",
+                        product.Id, request.Quantity, product.StockCount);
+                    throw new ServiceException("Insufficient stock available.", "PURCHASE_OUT_OF_STOCK", HttpStatusCode.Conflict);
                 }
 
-                product.StockCount -= 1;
+                // Atomic Update
+                product.StockCount -= request.Quantity;
+
                 _context.Orders.Add(new Order
                 {
                     ProductId = product.Id,
-                    UserId = request.UserId,
-                    OrderDate = DateTime.UtcNow
+                    UserId = userId,
+                    Quantity = request.Quantity,
+                    TotalPrice = product.Price * request.Quantity,
+                    OrderDate = DateTime.UtcNow,
+                    IdempotencyKey = idempotencyKey // Saved to prevent replays
                 });
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
+                _logger.LogInformation("Purchase successful: Order created for User {UserId}", userId);
                 return true;
             }
-            catch (ServiceException) { throw; } // Re-throw business exceptions
             catch (DbUpdateConcurrencyException)
             {
                 await transaction.RollbackAsync();
-                // This is caught by middleware and returned as 409 Conflict
-                throw;
+                _logger.LogWarning("Concurrency Conflict: Product {Id} updated by another process.", request.ProductId);
+                throw; // Caught by Global Exception Middleware to return 409
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not ServiceException)
             {
-                _logger.LogCritical(ex, "Purchase System Failure for User {UserId}", request.UserId);
                 await transaction.RollbackAsync();
-                throw new ServiceException("A critical error occurred during your purchase.", "SYSTEM_PURCHASE_FAILURE", HttpStatusCode.InternalServerError);
+                _logger.LogCritical(ex, "Transaction failed for User {UserId}", userId);
+                throw new ServiceException("Transaction failed.", "SYSTEM_ERROR", HttpStatusCode.InternalServerError);
             }
         }
     }

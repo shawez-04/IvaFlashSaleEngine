@@ -1,36 +1,79 @@
-using IvaFlashSaleEngine.Middleware;
 using IvaFlashSaleEngine.Data;
+using IvaFlashSaleEngine.Infrastructure;
+using IvaFlashSaleEngine.Middleware;
 using IvaFlashSaleEngine.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DYNAMIC PORT BINDING (Essential for Render)
-// Render assigns a random port via the 'PORT' environment variable.
+//////////////////////////////////////////////////////////////
+// PORT (Render Compatible)
+//////////////////////////////////////////////////////////////
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://*:{port}");
 
-// STRUCTURED LOGGING
+//////////////////////////////////////////////////////////////
+// LOGGING
+//////////////////////////////////////////////////////////////
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
-   // .WriteTo.File("logs/engine_log.txt", rollingInterval: RollingInterval.Day)
     .CreateLogger();
 builder.Host.UseSerilog();
 
-// CORE API SERVICES
+//////////////////////////////////////////////////////////////
+// CORE SERVICES
+//////////////////////////////////////////////////////////////
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "IvaFlashSale API",
+        Version = "v1"
+    });
 
-// JWT SECURITY CONFIGURATION
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter: Bearer {your JWT token}"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+
+    options.OperationFilter<IdempotencyHeaderFilter>();
+
+});
+
+//////////////////////////////////////////////////////////////
+// JWT CONFIGURATION
+//////////////////////////////////////////////////////////////
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (string.IsNullOrEmpty(jwtKey))
 {
-    throw new InvalidOperationException("CRITICAL: JWT Key not found. Check User Secrets or Environment Variables.");
+    throw new InvalidOperationException("JWT Key missing.");
 }
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -44,84 +87,86 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-            ClockSkew = TimeSpan.Zero // Removes 5min grace period
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtKey)
+            ),
+            ClockSkew = TimeSpan.Zero
         };
     });
 
 builder.Services.AddAuthorization();
 
-// HYBRID DB PROVIDER (Local SQL Server vs Cloud Supabase)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+//////////////////////////////////////////////////////////////
+// DATABASE
+//////////////////////////////////////////////////////////////
+var connectionString =
+    builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-            // Use PostgreSQL for Production (Supabase)
-        // Ensure our connection string includes: "SSL Mode=Require;Trust Server Certificate=true;"
-        options.UseNpgsql(connectionString);
-        options.ConfigureWarnings(w =>
-        w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
-
-    
+    options.UseNpgsql(connectionString);
 });
 
+//////////////////////////////////////////////////////////////
 // DEPENDENCY INJECTION
+//////////////////////////////////////////////////////////////
 builder.Services.AddScoped<IPurchaseService, PurchaseService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+//////////////////////////////////////////////////////////////
+// CORS
+//////////////////////////////////////////////////////////////
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+    options.AddPolicy("AllowAll", policy =>
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader());
 });
 
+//////////////////////////////////////////////////////////////
+// BUILD
+//////////////////////////////////////////////////////////////
 var app = builder.Build();
 
-// AUTOMATED CLOUD SETUP (Migrations & Seeding)
+//////////////////////////////////////////////////////////////
+// DB INIT
+//////////////////////////////////////////////////////////////
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<AppDbContext>();
-
-        // Auto-run migrations in Production to build Supabase tables
         if (!app.Environment.IsDevelopment())
         {
             await context.Database.MigrateAsync();
         }
-
-        // Seed the initial Admin from AppSettings/EnvVars
-        await DbInitializer.SeedAdminAsync(services, builder.Configuration);
+        await DbInitializer.SeedAdminAsync(
+            services,
+            builder.Configuration
+        );
     }
     catch (Exception ex)
     {
-        Log.Error(ex, "Failed to initialize Database during startup.");
+        Log.Error(ex, "Database initialization failed.");
     }
 }
 
-// MIDDLEWARE PIPELINE
-app.UseMiddleware<ExceptionHandlingMiddleware>(); // Always first!
-
-app.UseSwagger();
-app.UseSwaggerUI();
-app.UseHttpsRedirection();
+//////////////////////////////////////////////////////////////
+// PIPELINE
+//////////////////////////////////////////////////////////////
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseSwagger();
+app.UseSwaggerUI();
 app.MapControllers();
 
-// STARTUP LOGIC
-try
-{
-    Log.Information("IvaFlashSale starting in {Env} mode on port {Port}", app.Environment.EnvironmentName, port);
-    app.Run();
-}
-catch (Exception ex)
-{
-    Log.Fatal(ex, "Host terminated unexpectedly");
-}
-finally
-{
-    Log.CloseAndFlush();
-}
+//////////////////////////////////////////////////////////////
+// START
+//////////////////////////////////////////////////////////////
+Log.Information("IvaFlashSale running on port {Port}", port);
+app.Run();

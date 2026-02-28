@@ -1,14 +1,14 @@
-﻿using IvaFlashSaleEngine.Models;
+﻿using IvaFlashSaleEngine.DTOs;
 
 namespace IvaFlashSaleEngine.Services
 {
     public interface IProductService
     {
-        Task<IEnumerable<Product>> GetAllActiveProductsAsync();
-        Task<Product?> GetProductByIdAsync(int id);
-        Task<Product> CreateProductAsync(Product product);
-        Task<IEnumerable<Product>> CreateProductsBulkAsync(List<Product> products);
-        Task<bool> UpdateProductAsync(Product product);
-        Task<bool> SoftDeleteProductAsync(int id); // The "Pro" way to delete
+        Task<IEnumerable<ProductResponse>> GetAllActiveProductsAsync();
+        Task<ProductResponse?> GetProductByIdAsync(int id);
+        Task<ProductResponse> CreateProductAsync(ProductUpsertRequest request);
+        Task<IEnumerable<ProductResponse>> CreateProductsBulkAsync(List<ProductUpsertRequest> requests);
+        Task<bool> UpdateProductAsync(int id, ProductUpsertRequest request, uint rowVersion);
+        Task<bool> SoftDeleteProductAsync(int id);
     }
 }

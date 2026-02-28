@@ -37,7 +37,7 @@ namespace IvaFlashSaleEngine.Controllers
 
             if (user == null) return Unauthorized(new { message = "Invalid username or password" });
 
-            var token = GenerateJwtToken(user.Username, user.Role.ToString());
+            var token = GenerateJwtToken(user.Id.ToString(), user.Username, user.Role.ToString());
             return Ok(new { token });
         }
 
@@ -63,22 +63,24 @@ namespace IvaFlashSaleEngine.Controllers
             }
         }
 
-        private string GenerateJwtToken(string username, string role)
+        private string GenerateJwtToken(string userId, string username, string role)
         {
             var jwtKey = _config["Jwt:Key"];
 
             if (string.IsNullOrEmpty(jwtKey))
             {
-                throw new InvalidOperationException("JWT Key is not configured in appsettings.json.");
+                throw new InvalidOperationException("JWT Key is not configured.");
             }
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256); 
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
             var claims = new[]
             {
+                // Now 'userId' is available because we passed it in!
+                new Claim(ClaimTypes.NameIdentifier, userId),
                 new Claim(ClaimTypes.Name, username),
-                // .ToString() ensures "Admin" is put into the token as a string
-                new Claim(ClaimTypes.Role, role.ToString()),
+                new Claim(ClaimTypes.Role, role),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
